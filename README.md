@@ -1,7 +1,5 @@
 # AI Contract Risk Scanner
-**Course: 23N611 - INNOVATION PRACTICES**
 
-An AI-powered, signer-centric legal contract risk analysis system designed to identify, classify, and explain high-risk clauses in legal agreements. By combining a domain-specific fine-tuned Small Language Model (SLM) with Retrieval-Augmented Generation (RAG) over a database of over 9,400+ legal precedents, the system levels the playing field for individual signers.
 
 ## 📋 Problem Statement & Motivation
 
