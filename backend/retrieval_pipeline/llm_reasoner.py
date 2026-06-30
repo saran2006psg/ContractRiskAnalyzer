@@ -339,13 +339,59 @@ def _call_groq_chat(
     return None
 
 
+def _is_local_model_server_running() -> bool:
+    """Check if the local QA model server is running on port 9000."""
+    try:
+        with urllib.request.urlopen("http://localhost:9000/health", timeout=0.5) as response:
+            res = json.loads(response.read().decode("utf-8"))
+            return res.get("ready", False)
+    except Exception:
+        return False
+
+
+def _query_local_model_server(question: str, context: str) -> Optional[Dict[str, Any]]:
+    """Query the local RoBERTa QA model server on port 9000."""
+    try:
+        url = "http://localhost:9000/qa"
+        payload = json.dumps({"question": question, "context": context}).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=5.0) as response:
+            res = json.loads(response.read().decode("utf-8"))
+            
+        answer = res.get("answer", "").strip()
+        confidence = float(res.get("confidence", 0.0))
+        
+        if answer:
+            return {
+                "answer": answer,
+                "confidence": confidence,
+                "quality": _score_answer_quality(answer, confidence),
+            }
+    except Exception as e:
+        logger.warning("Failed to query local model server: %s", e)
+    return None
+
+
 def _query_model_server(
     question: str,
     context: str,
     agreement_type: Optional[str] = None,
     user_type: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Run context-grounded QA through Groq and return normalized answer payload."""
+    """Run context-grounded QA through the local model server (if running) or Groq."""
+    # 1. Try local model server first
+    if _is_local_model_server_running():
+        local_res = _query_local_model_server(question, context)
+        if local_res:
+            logger.info("Using local model server for QA: %s", local_res["answer"])
+            return local_res
+
+    # 2. Fall back to Groq
     role_context = build_role_review_context(
         agreement_type or DEFAULT_CONTEXT_AGREEMENT_TYPE,
         user_type or DEFAULT_CONTEXT_USER_TYPE,
@@ -521,6 +567,96 @@ def _analyze_clause_with_groq(
     }
 
 
+CLAUSE_TYPE_QUESTIONS_MAP = {
+    "limitation_of_liability": ["Is there an Uncapped Liability clause?"],
+    "liability": ["Is there an Uncapped Liability clause?"],
+    "termination": ["Can a party terminate this contract without cause?"],
+    "non_compete": ["Is there a non-compete obligation?"],
+    "non-compete": ["Is there a non-compete obligation?"],
+    "renewal": [
+        "What is the Renewal Term after the initial term expires?",
+        "What is the notice period required to terminate renewal?"
+    ],
+    "governing_law": ["What is the Governing Law?"],
+    "insurance": ["What are the Insurance requirements?"],
+}
+
+
+def _analyze_clause_with_local_model(
+    clause_text: str,
+    similar_clauses: List[Dict[str, Any]],
+    agreement_type: str,
+    user_type: str,
+) -> Optional[Dict[str, Any]]:
+    """Analyze a clause using the local QA model by asking targeted questions based on RAG matches."""
+    if not similar_clauses:
+        return None
+
+    # Determine which questions to ask based on top matches
+    clause_types = set()
+    for sim in similar_clauses[:2]:
+        c_type = sim.get("clause_type", "").lower()
+        if c_type:
+            clause_types.add(c_type)
+
+    questions_to_ask = []
+    for c_type in clause_types:
+        matched = False
+        for key, q_list in CLAUSE_TYPE_QUESTIONS_MAP.items():
+            if key in c_type or c_type in key:
+                questions_to_ask.extend(q_list)
+                matched = True
+        if not matched:
+            # Fallback to similar severity questions
+            severity = sim.get("severity", "LOW").upper()
+            questions_to_ask.extend(QUESTIONS.get(severity, []))
+
+    # Deduplicate
+    questions_to_ask = list(set(questions_to_ask))
+
+    if not questions_to_ask:
+        return None
+
+    detected_risks = []
+    for question in questions_to_ask:
+        severity = "LOW"
+        for sev, q_list in QUESTIONS.items():
+            if question in q_list:
+                severity = sev
+                break
+
+        res = _query_local_model_server(question, clause_text)
+        if res and res.get("answer"):
+            confidence = res["confidence"]
+            if confidence >= -1.5:
+                label = QUESTION_LABELS.get(question, "relevant provision")
+                detected_risks.append({
+                    "severity": severity,
+                    "question": question,
+                    "answer": res["answer"],
+                    "confidence": confidence,
+                    "label": label
+                })
+
+    if not detected_risks:
+        return None
+
+    # Sort by severity (HIGH > MEDIUM > LOW) and then by confidence
+    severity_order = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
+    detected_risks.sort(key=lambda x: (severity_order[x["severity"]], x["confidence"]), reverse=True)
+
+    top_risk = detected_risks[0]
+    risk_level = top_risk["severity"]
+    explanation = f"Identified {top_risk['label']}: \"{top_risk['answer']}\"."
+
+    return {
+        "risk_level": risk_level,
+        "explanation": explanation,
+        "indicators": [top_risk["label"]],
+        "confidence": top_risk["confidence"],
+    }
+
+
 # ---------------------------------------------------------------------------
 # Core analysis
 # ---------------------------------------------------------------------------
@@ -545,19 +681,35 @@ def analyze_clause_with_llm(
 
     model_used = False
     fallback_used = False
+    model_result = None
 
-    model_result = _analyze_clause_with_groq(
-        clause_text,
-        similar_clauses,
-        selected_agreement_type,
-        selected_user_type,
-    )
+    # 1. Try local model server first if it is running
+    if _is_local_model_server_running():
+        model_result = _analyze_clause_with_local_model(
+            clause_text,
+            similar_clauses,
+            selected_agreement_type,
+            selected_user_type,
+        )
+        if model_result:
+            model_used = True
+
+    # 2. If local model server is not running or didn't find anything, try Groq
+    if not model_result:
+        model_result = _analyze_clause_with_groq(
+            clause_text,
+            similar_clauses,
+            selected_agreement_type,
+            selected_user_type,
+        )
+        if model_result:
+            model_used = True
 
     if model_result:
-        model_used = True
         risk_level = model_result["risk_level"]
         explanation = model_result["explanation"]
-        if model_result.get("indicators"):
+        if model_result.get("indicators") and not _is_local_model_server_running():
+            # Only append indicators for Groq results to keep local extractive output clean
             indicators = ", ".join(model_result["indicators"][:3])
             explanation = f"{explanation} Key signals: {indicators}."
 
@@ -616,7 +768,17 @@ def analyze_clauses_with_llm_batch(
     ]
 
 def get_model_service_status() -> Dict[str, Any]:
-    """Return Groq connectivity and configuration status."""
+    """Return model service connectivity and configuration status."""
+    # Check if local model server is running on port 9000
+    if _is_local_model_server_running():
+        return {
+            "enabled": True,
+            "status": "ready",
+            "url": "http://localhost:9000/qa",
+            "provider": "local-slm",
+            "model": "roberta-large",
+        }
+
     if not GROQ_ENABLED:
         return {
             "enabled": False,

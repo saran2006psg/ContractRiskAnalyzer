@@ -114,8 +114,11 @@ RISK_LEVELS = {
 # Standard project model location(s)
 _DEFAULT_HF_MODEL_PATHS = [
     os.getenv("HF_MODEL_PATH"),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models", "roberta-large")),
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "models", "roberta-base")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "roberta-large")),
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "roberta-base")),
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend", "models", "roberta-large")),
     os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "backend", "models", "roberta-base")),
 ]
 

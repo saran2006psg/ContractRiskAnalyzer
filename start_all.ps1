@@ -24,6 +24,14 @@ if ($InstallFrontendDeps -or -not (Test-Path (Join-Path $frontendDir "node_modul
     Pop-Location
 }
 
+Write-Host "Starting model server (RoBERTa-large)..."
+Start-Process powershell -ArgumentList @(
+    "-NoExit",
+    "-ExecutionPolicy", "Bypass",
+    "-Command",
+    "& '$venvActivate'; Set-Location '$backendDir'; python .\model_server.py"
+)
+
 Write-Host "Starting backend API terminal..."
 Start-Process powershell -ArgumentList @(
     "-NoExit",
@@ -32,7 +40,7 @@ Start-Process powershell -ArgumentList @(
     "& '$venvActivate'; Set-Location '$backendDir'; python .\api.py"
 )
 
-Start-Sleep -Seconds 1
+Start-Sleep -Seconds 2
 
 $healthUrl = "http://127.0.0.1:8000/health"
 $maxWaitSec = 45
@@ -43,7 +51,7 @@ while ($elapsedSec -lt $maxWaitSec) {
     try {
         $health = Invoke-RestMethod -Uri $healthUrl -Method Get -TimeoutSec 2
         if ($health.api -eq "ready") {
-            Write-Host "Backend is ready (llm_provider=$($health.llm_provider), llm_status=$($health.model_server))."
+            Write-Host "Backend is ready (llm_provider=$($health.llm_provider), model_server=$($health.model_server))."
             break
         }
         Write-Host "Backend health status=$($health.status), waiting..."
@@ -52,8 +60,8 @@ while ($elapsedSec -lt $maxWaitSec) {
         Write-Host "Backend not reachable yet, waiting..."
     }
 
-    Start-Sleep -Seconds 1
-    $elapsedSec += 1
+    Start-Sleep -Seconds 2
+    $elapsedSec += 2
 }
 
 if ($elapsedSec -ge $maxWaitSec) {
@@ -71,3 +79,5 @@ Start-Process powershell -ArgumentList @(
 Write-Host "All services launched in separate terminals."
 Write-Host "Frontend: http://localhost:5173"
 Write-Host "Backend API: http://127.0.0.1:8000"
+Write-Host "Model Server: http://127.0.0.1:9000"
+

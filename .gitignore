@@ -77,6 +77,8 @@ logs/
 # Data Files (large)
 *.csv.gz
 *.parquet
+*.db
+backend/data/chat_sessions.db
 
 # OS
 Thumbs.db
