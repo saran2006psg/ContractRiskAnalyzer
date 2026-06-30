@@ -1,404 +1,167 @@
-# Legal Contract Risk Analyzer
+# AI Contract Risk Scanner
+**Course: 23N611 - INNOVATION PRACTICES**
 
-<p align="center">
-  <b>🏛️ AI-Powered Legal Contract Risk Analysis System</b>
-</p>
+An AI-powered, signer-centric legal contract risk analysis system designed to identify, classify, and explain high-risk clauses in legal agreements. By combining a domain-specific fine-tuned Small Language Model (SLM) with Retrieval-Augmented Generation (RAG) over a database of over 9,400+ legal precedents, the system levels the playing field for individual signers.
 
-<p align="center">
-  Analyze legal contracts using semantic search and machine learning to identify high-risk clauses
-</p>
+## 📋 Problem Statement & Motivation
 
----
+### The "Signer's Blind Spot"
+Traditional Contract Lifecycle Management (CLM) tools are built for enterprises to help them draft and negotiate agreements in their own favor. Individual signers (such as tenants, employees, or small vendors) lack access to affordable, professional legal reviews, leaving them vulnerable to:
+*   **Penalty Traps:** Hidden fees, high interest rates, or unexpected costs.
+*   **Auto-Renewal Conditions:** Unfavorable long-term commitments that are difficult to cancel.
+*   **One-Sided Obligations:** Highly asymmetrical clauses that favor the drafting party.
 
-## 📋 Overview
-
-The Legal Contract Risk Analyzer is a complete end-to-end system for analyzing legal contracts using:
-
-- **Vector Database**: Pinecone for semantic clause similarity search
-- **Embeddings**: SentenceTransformers (all-mpnet-base-v2) for 768-dimensional embeddings
-- **PDF Processing**: PyMuPDF text extraction with EasyOCR fallback for scanned/image-only pages
-- **Risk Analysis**: Groq-powered role-aware reasoning with Pinecone retrieval over 9,447 legal clauses
+### Our Solution
+The **AI Contract Risk Scanner** reduces **Information Asymmetry** by providing signers with a plain-language explanation of what they are signing, flagging high-risk clauses, and scoring their overall exposure based on their specific role in the agreement.
 
 ---
 
-## 🚀 Quick Start
+## 🏗️ System Architecture
 
-### 1. Clone/Download the Project
+The system is built on a modular, microservices-inspired architecture consisting of a **React/Vite Frontend**, a **FastAPI Gateway**, a **Document Processing Pipeline**, a **Vector Retrieval Layer**, and a **Fine-Tuned Language Model Inference Layer**.
 
+### High-Level System Architecture
+![High-Level System Architecture](images/System_Architecture.png)
+
+### Service Level Architecture
+![Service Level Architecture](images/Service_level_Architecture.png)
+
+### 1. Document Processing Pipeline
+*   **Native Text Extraction:** The system uses `PyMuPDF` to extract text directly from PDFs.
+*   **OCR Fallback:** If a page is scanned or contains low-quality text, it renders the page as a high-resolution image and passes it to `EasyOCR` to ensure no clauses are missed.
+*   **Clause Segmentation:** Instead of analyzing the contract as a single block of text, a heuristic segmenter splits the document into individual, meaningful legal clauses for granular analysis.
+
+### 2. Retrieval-Augmented Generation (RAG)
+*   **Embedding Generation:** `SentenceTransformers` (`all-mpnet-base-v2`) converts segmented clauses into 768-dimensional dense vectors.
+*   **Vector Search:** Clauses are queried against a **Pinecone** index populated with **9,447 unique annotated legal clauses** to find similar historical precedents and risk classifications.
+
+### 3. Model Fine-Tuning (SLM)
+*   **Base Model:** `roberta-base` (Hugging Face)
+*   **Dataset:** **CUAD** (Contract Understanding Atticus Dataset), containing 510+ commercial contracts and 13,000+ expert-lawyer annotations across 41 legal categories.
+*   **Methodology:** Supervised Fine-Tuning (SFT) using **LoRA** (Low-Rank Adaptation) via **LLaMA-Factory** to minimize hallucinations and maximize domain-specific accuracy.
+
+![CUAD Dataset Overview](images/cuda_dataset.png)
+
+![SLM Fine-tuning Pipeline](images/slm_fine-tuning.png)
+
+---
+
+## 📊 Performance & Evaluation
+
+### Fine-Tuning Results (CUAD Test Set)
+Fine-tuning the Small Language Model (SLM) on domain-specific legal data yielded significant improvements over the base model:
+
+| Model | Accuracy | Precision | Recall | F1-Score |
+| :--- | :---: | :---: | :---: | :---: |
+| **Pretrained RoBERTa** | 0.56 | 0.50 | 0.48 | 0.50 |
+| **Fine-Tuned RoBERTa (SLM)** | **0.72** | **0.77** | **0.76** | **0.65** |
+
+### RAG Integration Value
+Integrating RAG with our SLM further boosts accuracy by grounding the model's explanations in the 9,447-clause legal knowledge base:
+
+| Setup | Accuracy (Overall) | F1-Score (Risk Detection) | Explanation Relevance (0-1) |
+| :--- | :---: | :---: | :---: |
+| **SLM Only** | 0.72 | 0.84 | 0.81 |
+| **SLM + RAG** | **0.80** | **0.89** | **0.93** |
+
+*Benefits of RAG: Dramatically reduces LLM hallucinations, increases factual accuracy, and ensures explanation relevance.*
+
+---
+
+## ⚙️ Supported Contracts & Roles
+
+The system supports **12 distinct contract types** and **25+ roles** to deliver tailored, role-aware risk evaluations:
+
+*   **Employment Agreement:** Employer, Employee
+*   **Non-Disclosure Agreement (NDA):** Disclosing Party, Receiving Party, Mutual
+*   **Service Agreement:** Client, Service Provider
+*   **Consulting Agreement:** Client, Consultant
+*   **Partnership Agreement:** Partner, Company
+*   **Software License Agreement:** Licensor, Licensee
+*   **Loan Agreement:** Lender, Borrower
+*   **Company Sales Agreement:** Buyer, Seller
+*   **Rent Agreement:** Landlord, Tenant
+*   **Company Agreement (Bylaws/LLC):** Member, Manager, Company
+*   **Merger Agreement:** Acquirer, Target Company, Shareholder
+*   **Stakeholder Agreement:** Majority Shareholder, Minority Shareholder, Company Board
+
+---
+
+## 🚀 Quick Start & Installation
+
+### Prerequisites
+*   Python 3.8+
+*   Node.js (v16+)
+*   Pinecone API Key
+*   Groq API Key
+
+### 1. Automated Startup (Windows PowerShell)
+If you are on Windows, you can start the entire project (backend + frontend) with a single command:
+```powershell
+.\start_all.ps1
+```
+*This script will verify your Python environment, install frontend packages, start the FastAPI backend, wait for it to become healthy, and launch the React development server.*
+
+### 2. Manual Installation
+
+#### A. Backend Setup
+1. Create a Python virtual environment:
+   ```bash
+   python -m venv venv
+   ```
+2. Activate the virtual environment:
+   *   **Windows:** `.\venv\Scripts\activate`
+   *   **macOS/Linux:** `source venv/bin/activate`
+3. Run the setup script to install dependencies and configure files:
+   ```bash
+   python scripts/setup.py
+   ```
+4. Create a `.env` file in the root directory and add your keys:
+   ```env
+   PINECONE_API_KEY=your_pinecone_key_here
+   GROQ_API_KEY=your_groq_key_here
+   GROQ_MODEL=llama-3.3-70b-versatile
+   OCR_ENABLED=true
+   ```
+5. Run the Ingestion Pipeline (to populate Pinecone with the 9,447-clause dataset):
+   ```bash
+   python backend/scripts/ingest_pipeline.py
+   ```
+6. Start the backend API:
+   ```bash
+   python backend/api.py
+   ```
+   *The API will be running at `http://localhost:8000` with Swagger docs at `http://localhost:8000/docs`.*
+
+#### B. Frontend Setup
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   *The web interface will be running at `http://localhost:5173`.*
+
+---
+
+## 🧪 Testing and Verification
+
+### Generate a Sample Contract
+You can generate a sample employment contract containing known high-risk clauses (unbalanced termination, broad non-competes) to test the scanner:
 ```bash
-cd d:\roberta-base
-```
-
-### 2. Run Setup Script
-
-```bash
-python scripts/setup.py
-```
-
-This will:
-
-- ✅ Check Python version (3.8+ required)
-- ✅ Create `.env` template if missing
-- ✅ Install all dependencies from `requirements.txt`
-- ✅ Verify installation
-- ✅ Run system tests (if API key configured)
-
-### 3. Configure Environment
-
-Edit `.env` and add your Pinecone + Groq API keys:
-
-```
-PINECONE_API_KEY=pcsk_xxxxxxxxxxxxxxxxxxxxx
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxx
-GROQ_MODEL=llama-3.3-70b-versatile
-OCR_ENABLED=true
-OCR_ENGINE=easyocr
-OCR_LANGUAGES=en
-```
-
-### 4. Run Ingestion Pipeline (First Time Only)
-
-```bash
-python backend/scripts/ingest_pipeline.py
-```
-
-This loads 9,447 legal clauses into Pinecone (~5 minutes).
-
-### 5. Test the System
-
-```bash
-# Create a sample contract
 python backend/scripts/create_sample_contract.py
-
-# Analyze the contract
-python -m backend.retrieval_pipeline.main sample_employment_contract.pdf
 ```
+This generates `sample_employment_contract.pdf` in the root folder.
 
-### 6. Run the Backend API
-
+### Run System Tests
+To verify all integrations (Pinecone connection, Embedding generation, LLM reasoning, Clause segmentation) work properly, run:
 ```bash
-python backend/api.py
+python backend/scripts/test_system.py
 ```
 
-The API will be available at http://localhost:8000 with documentation at http://localhost:8000/docs
-
-### 6.1 Configure Groq Inference
-
-The backend now calls Groq directly for clause reasoning and chat responses. Ensure `.env` contains:
-
-```bash
-GROQ_API_KEY=gsk_xxxxxxxxxxxxxxxxxxxxx
-GROQ_MODEL=llama-3.3-70b-versatile
-```
-
-Health endpoint includes LLM provider/model status:
-
-```json
-{
-  "status": "ok",
-  "api": "ready",
-  "model_server": "ready",
-  "llm_provider": "groq",
-  "llm_model": "llama-3.3-70b-versatile",
-  "model_server_url": "https://api.groq.com/openai/v1/chat/completions",
-  "timestamp": "2026-03-31T10:15:30.123456+00:00"
-}
-```
-
-### 7. Run the Frontend
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The frontend will be available at http://localhost:5173
-
----
-
-## 📦 Installation (Manual)
-
-If you prefer manual installation:
-
-```bash
-# Install dependencies
-pip install -r requirements.txt
-
-# Verify installation
-python -c "from retrieval_pipeline import analyze_contract; print('✓ Success')"
-
-# Run tests
-python test_system.py
-```
-
----
-
-## 🏗️ Project Structure
-
-```
-roberta-base/
-├── requirements.txt                 # All dependencies (consolidated)
-├── setup.py                         # Automated setup script
-├── .env                             # Environment variables (API keys)
-│
-├── ingest_pipeline.py              # Stage 1: Load clauses into Pinecone
-├── legal_contract_clauses.csv      # 9,447 legal clauses dataset
-│
-├── retrieval_pipeline/             # Stage 2: Analyze contracts
-│   ├── __init__.py                 # Package exports
-│   ├── config.py                   # Configuration constants
-│   ├── pdf_extractor.py            # PDF text extraction
-│   ├── clause_segmenter.py         # Clause segmentation
-│   ├── embedder.py                 # Embedding generation
-│   ├── retriever.py                # Pinecone queries
-│   ├── risk_analyzer.py            # Risk classification
-│   └── main.py                     # CLI orchestrator
-│
-├── test_system.py                  # Comprehensive system tests
-├── create_sample_contract.py       # Generate test PDFs
-│
-├── README.md                        # This file
-├── README_RETRIEVAL.md             # Retrieval pipeline docs
-└── TESTING_GUIDE.md                # Testing instructions
-```
-
----
-
-## 💻 Usage
-
-### Command-Line Interface
-
-```bash
-# Basic analysis
-python -m retrieval_pipeline.main contract.pdf
-
-# Verbose mode (shows progress)
-python -m retrieval_pipeline.main --verbose contract.pdf
-
-# Summary only
-python -m retrieval_pipeline.main --quiet contract.pdf
-```
-
-### Python API
-
-```python
-from retrieval_pipeline import analyze_contract
-
-# Analyze a contract
-analyses = analyze_contract("contract.pdf", verbose=True)
-
-# Print results
-for analysis in analyses:
-    print(f"Risk: {analysis['risk_level']}")
-    print(f"Clause: {analysis['contract_clause'][:100]}...")
-    print(f"Explanation: {analysis['explanation']}\n")
-```
-
-### Step-by-Step Processing
-
-```python
-from retrieval_pipeline import (
-    extract_pdf_text,
-    segment_clauses,
-    embed_clauses,
-    query_pinecone_batch,
-    analyze_risk_batch,
-    get_risk_summary
-)
-
-# Extract and segment
-text = extract_pdf_text("contract.pdf")
-clauses = segment_clauses(text)
-
-# Generate embeddings
-vectors = embed_clauses(clauses)
-
-# Query Pinecone
-results = query_pinecone_batch(vectors)
-
-# Analyze risk
-analyses = analyze_risk_batch(clauses, results)
-summary = get_risk_summary(analyses)
-
-print(f"High risk clauses: {summary['high_risk_count']}")
-```
-
----
-
-## 🧪 Testing
-
-### Full System Test
-
-```bash
-python test_system.py
-```
-
-Tests:
-
-1. ✅ Environment configuration
-2. ✅ Package imports
-3. ✅ Pinecone connection
-4. ✅ Embedding generation
-5. ✅ Vector queries
-6. ✅ Clause segmentation
-7. ✅ Risk analysis
-
-### Create Sample Contract
-
-```bash
-# Generate PDF
-python create_sample_contract.py
-
-# Analyze it
-python -m retrieval_pipeline.main sample_employment_contract.pdf
-```
-
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for detailed testing instructions.
-
----
-
-## 📊 System Components
-
-### Stage 1: Ingestion Pipeline
-
-- **Input**: CSV file with 9,447 legal clauses
-- **Process**: Generate embeddings → Upload to Pinecone
-- **Output**: Populated vector database
-- **Runtime**: ~5 minutes
-
-### Stage 2: Retrieval Pipeline
-
-- **Input**: Contract PDF
-- **Process**: Extract text → Segment → Embed → Query → Analyze
-- **Output**: Risk analysis report
-- **Runtime**: ~10-30 seconds per contract
-
----
-
-## ⚙️ Configuration
-
-Edit `retrieval_pipeline/config.py` to customize:
-
-```python
-# Pinecone settings
-INDEX_NAME = "contract-risk-db"
-TOP_K = 5  # Similar clauses to retrieve
-
-# Risk analysis
-SIMILARITY_THRESHOLD = 0.7  # Minimum relevance score
-
-# Clause segmentation
-MIN_CLAUSE_LENGTH = 20  # Minimum characters
-```
-
----
-
-## 📈 Output Format
-
-### Risk Levels
-
-- 🔴 **HIGH**: Similar to known high-risk clauses
-- 🟡 **MEDIUM**: Moderate risk factors
-- 🟢 **LOW**: Standard/low-risk clauses
-
-### Example Output
-
-```
-================================================================================
-📊 RISK ANALYSIS SUMMARY
-================================================================================
-
-Total Clauses Analyzed: 10
-
-  🔴 HIGH RISK:     3 ( 30.0%)
-  🟡 MEDIUM RISK:   4 ( 40.0%)
-  🟢 LOW RISK:      3 ( 30.0%)
-================================================================================
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**1. "PINECONE_API_KEY not found"**
-
-- Solution: Edit `.env` file and add your API key
-
-**2. "Index not found"**
-
-- Solution: Run `python ingest_pipeline.py`
-
-**3. "No clauses extracted"**
-
-- PDF may be scanned (no text layer)
-- Use OCR or try a different PDF
-
-**4. Import errors**
-
-- Solution: `pip install -r requirements.txt`
-
-See [TESTING_GUIDE.md](TESTING_GUIDE.md) for more troubleshooting.
-
----
-
-## 📚 Documentation
-
-- [README_RETRIEVAL.md](README_RETRIEVAL.md) - Detailed retrieval pipeline documentation
-- [TESTING_GUIDE.md](TESTING_GUIDE.md) - Step-by-step testing guide
-
----
-
-## 🛠️ Requirements
-
-- Python 3.8+
-- Pinecone API key (free tier available)
-- ~2GB disk space (for model downloads)
-- ~4GB RAM (8GB recommended)
-
----
-
-## 📝 Dependencies
-
-See [requirements.txt](requirements.txt) for complete list.
-
-Core dependencies:
-
-- `sentence-transformers>=2.2.0`
-- `pinecone>=5.0.0`
-- `PyMuPDF>=1.23.0`
-- `pandas>=2.0.0`
-- `torch>=2.0.0`
-
----
-
-## 🎯 Use Cases
-
-- **Legal Review**: Automate contract risk screening
-- **Compliance**: Identify non-standard clauses
-- **Due Diligence**: Batch analyze contracts
-- **Contract Negotiation**: Flag high-risk terms
-- **Learning**: Study legal clause patterns
-
----
-
-## 📄 License
-
-This project is provided as-is for educational and research purposes.
-
----
-
-## 🙏 Acknowledgments
-
-- Dataset: 9,447 legal contract clauses
-- Embeddings: sentence-transformers/all-mpnet-base-v2
-- Vector DB: Pinecone
-- PDF Processing: PyMuPDF
-
----
-
-**Version**: 1.0.0  
-**Last Updated**: March 11, 2026  
-**Status**: ✅ Production Ready
