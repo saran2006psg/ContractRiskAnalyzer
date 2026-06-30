@@ -7,9 +7,17 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000
 
 const FALLBACK_AGREEMENT_OPTIONS = [
   { agreement_type: 'Company Sales Agreement', user_types: ['Buyer', 'Seller'] },
+  { agreement_type: 'Employment Agreement', user_types: ['Employer', 'Employee'] },
+  { agreement_type: 'Non-Disclosure Agreement (NDA)', user_types: ['Disclosing Party', 'Receiving Party', 'Mutual'] },
+  { agreement_type: 'Service Agreement', user_types: ['Client', 'Service Provider'] },
+  { agreement_type: 'Consulting Agreement', user_types: ['Client', 'Consultant'] },
+  { agreement_type: 'Partnership Agreement', user_types: ['Partner', 'Company'] },
+  { agreement_type: 'Software License Agreement', user_types: ['Licensor', 'Licensee'] },
+  { agreement_type: 'Loan Agreement', user_types: ['Lender', 'Borrower'] },
   { agreement_type: 'Merger Agreement', user_types: ['Acquirer', 'Target Company', 'Shareholder'] },
   { agreement_type: 'Stakeholder Agreement', user_types: ['Majority Shareholder', 'Minority Shareholder', 'Company Board'] },
   { agreement_type: 'Rent Agreement', user_types: ['Landlord', 'Tenant'] },
+  { agreement_type: 'Company Agreement', user_types: ['Member', 'Manager', 'Company'] },
 ];
 
 function TopNav({ currentView, setView, hasResults }) {

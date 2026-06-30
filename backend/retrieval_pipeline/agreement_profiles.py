@@ -5,9 +5,17 @@ from typing import Dict, List, Tuple
 
 AGREEMENT_USER_TYPE_MAP: Dict[str, List[str]] = {
     "Company Sales Agreement": ["Buyer", "Seller"],
+    "Employment Agreement": ["Employer", "Employee"],
+    "Non-Disclosure Agreement (NDA)": ["Disclosing Party", "Receiving Party", "Mutual"],
+    "Service Agreement": ["Client", "Service Provider"],
+    "Consulting Agreement": ["Client", "Consultant"],
+    "Partnership Agreement": ["Partner", "Company"],
+    "Software License Agreement": ["Licensor", "Licensee"],
+    "Loan Agreement": ["Lender", "Borrower"],
     "Merger Agreement": ["Acquirer", "Target Company", "Shareholder"],
     "Stakeholder Agreement": ["Majority Shareholder", "Minority Shareholder", "Company Board"],
     "Rent Agreement": ["Landlord", "Tenant"],
+    "Company Agreement": ["Member", "Manager", "Company"],
 }
 
 
@@ -20,6 +28,80 @@ ROLE_REVIEW_GUIDANCE: Dict[str, Dict[str, str]] = {
         "Seller": (
             "Prioritize over-broad indemnity duties, delayed or conditional payment terms, "
             "excessive escrow/holdback terms, and restrictive post-sale covenants on the seller."
+        ),
+    },
+    "Employment Agreement": {
+        "Employer": (
+            "Prioritize protection of company IP, clear termination-for-cause definitions, "
+            "enforceable post-employment non-competes/non-solicits, and flexibility in duties/location."
+        ),
+        "Employee": (
+            "Prioritize clear compensation/bonus structures, reasonable termination notice periods, "
+            "severance pay, narrow non-compete scope, and protection of pre-existing IP."
+        ),
+    },
+    "Non-Disclosure Agreement (NDA)": {
+        "Disclosing Party": (
+            "Prioritize a broad definition of Confidential Information, strict return-of-materials obligations, "
+            "long confidentiality terms, and strong remedies/injunctive relief for breaches."
+        ),
+        "Receiving Party": (
+            "Prioritize clear exceptions to confidentiality (e.g., public knowledge), short non-disclosure durations, "
+            "exclusion of residual knowledge, and no warranties on disclosed info."
+        ),
+        "Mutual": (
+            "Prioritize balanced obligations where both parties share equal restrictions, "
+            "mutual exceptions, and symmetrical remedies for disclosure."
+        ),
+    },
+    "Service Agreement": {
+        "Client": (
+            "Prioritize clear deliverables, strict service level agreements (SLAs), ownership of work product (IP), "
+            "robust warranties, and easy termination for convenience."
+        ),
+        "Service Provider": (
+            "Prioritize prompt payment terms, clear scope-of-work boundaries (excluding out-of-scope tasks), "
+            "limitation of liability (caps), and retention of pre-existing IP."
+        ),
+    },
+    "Consulting Agreement": {
+        "Client": (
+            "Prioritize full ownership of all work product (IP), clear project milestones, confidentiality, "
+            "and right to terminate on short notice without penalty."
+        ),
+        "Consultant": (
+            "Prioritize timely payment, reimbursement of expenses, clear definition of independent contractor status "
+            "(no employment benefits), and retention of background consulting methods/tools."
+        ),
+    },
+    "Partnership Agreement": {
+        "Partner": (
+            "Prioritize profit distribution rules, voting rights/veto power, transfer of interest restrictions, "
+            "buy-out terms, and protection against dilution."
+        ),
+        "Company": (
+            "Prioritize capital call mechanisms, clear dispute resolution/deadlock breaking, "
+            "and protection of company assets from individual partner actions."
+        ),
+    },
+    "Software License Agreement": {
+        "Licensor": (
+            "Prioritize scope of license restrictions (no reverse engineering/sublicensing), IP ownership retention, "
+            "audit rights, and disclaimer of warranties."
+        ),
+        "Licensee": (
+            "Prioritize uptime/maintenance warranties, clear scope of permitted use (number of users/sites), "
+            "source code escrow (if applicable), and indemnification against IP infringement claims."
+        ),
+    },
+    "Loan Agreement": {
+        "Lender": (
+            "Prioritize clear interest rate/payment schedule, strong event-of-default triggers, financial covenants, "
+            "collateral/security interests, and acceleration of debt rights."
+        ),
+        "Borrower": (
+            "Prioritize reasonable grace periods for defaults, ability to prepay without penalty, "
+            "narrow representation/warranties, and minimal restrictive financial covenants."
         ),
     },
     "Merger Agreement": {
@@ -58,6 +140,20 @@ ROLE_REVIEW_GUIDANCE: Dict[str, Dict[str, str]] = {
         "Tenant": (
             "Prioritize rent escalation, repair burdens, deposit forfeiture triggers, "
             "early termination penalties, and unilateral landlord rights."
+        ),
+    },
+    "Company Agreement": {
+        "Member": (
+            "Prioritize profit-sharing allocations, voting/veto rights, transferability of membership interest, "
+            "and protection against dilution."
+        ),
+        "Manager": (
+            "Prioritize authority to manage operations, exculpation and indemnification by the LLC, "
+            "and protection from personal liability."
+        ),
+        "Company": (
+            "Prioritize capital contributions, clear deadlock-breaking mechanisms, and protection of company "
+            "operations from individual member disputes."
         ),
     },
 }
