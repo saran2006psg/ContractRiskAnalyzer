@@ -23,6 +23,7 @@ from .config import (
     REASONER_SIMILARITY_THRESHOLD,
     MIN_ANSWER_LENGTH,
     SUMMARY_MIN_CONFIDENCE,
+    MODEL_SERVER_URL,
 )
 
 logger = logging.getLogger(__name__)
@@ -349,18 +350,22 @@ def _is_local_model_server_running() -> bool:
         return False
 
 
-def _query_local_model_server(question: str, context: str) -> Optional[Dict[str, Any]]:
-    """Query the local RoBERTa QA model server on port 9000."""
+def _query_remote_model_server(url: str, question: str, context: str) -> Optional[Dict[str, Any]]:
+    """Query a remote QA model server (like Modal) at the specified URL."""
     try:
-        url = "http://localhost:9000/qa"
+        # Standardize URL path if it is just the base URL
+        endpoint_url = url
+        if not endpoint_url.endswith("/qa") and not endpoint_url.endswith("/qa_batch"):
+            endpoint_url = endpoint_url.rstrip("/") + "/qa"
+            
         payload = json.dumps({"question": question, "context": context}).encode("utf-8")
         req = urllib.request.Request(
-            url,
+            endpoint_url,
             data=payload,
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=5.0) as response:
+        with urllib.request.urlopen(req, timeout=10.0) as response:
             res = json.loads(response.read().decode("utf-8"))
             
         answer = res.get("answer", "").strip()
@@ -373,8 +378,13 @@ def _query_local_model_server(question: str, context: str) -> Optional[Dict[str,
                 "quality": _score_answer_quality(answer, confidence),
             }
     except Exception as e:
-        logger.warning("Failed to query local model server: %s", e)
+        logger.warning("Failed to query remote model server at %s: %s", url, e)
     return None
+
+
+def _query_local_model_server(question: str, context: str) -> Optional[Dict[str, Any]]:
+    """Query the local RoBERTa QA model server on port 9000."""
+    return _query_remote_model_server("http://localhost:9000/qa", question, context)
 
 
 def _query_model_server(
@@ -383,15 +393,22 @@ def _query_model_server(
     agreement_type: Optional[str] = None,
     user_type: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Run context-grounded QA through the local model server (if running) or Groq."""
-    # 1. Try local model server first
+    """Run context-grounded QA through the configured remote server, local server, or Groq."""
+    # 1. Try remote model server (like Modal) if configured in .env
+    if MODEL_SERVER_URL:
+        remote_res = _query_remote_model_server(MODEL_SERVER_URL, question, context)
+        if remote_res:
+            logger.info("Using remote model server for QA: %s", remote_res["answer"])
+            return remote_res
+
+    # 2. Try local model server on port 9000 if running
     if _is_local_model_server_running():
         local_res = _query_local_model_server(question, context)
         if local_res:
             logger.info("Using local model server for QA: %s", local_res["answer"])
             return local_res
 
-    # 2. Fall back to Groq
+    # 3. Fall back to Groq
     role_context = build_role_review_context(
         agreement_type or DEFAULT_CONTEXT_AGREEMENT_TYPE,
         user_type or DEFAULT_CONTEXT_USER_TYPE,
@@ -683,8 +700,9 @@ def analyze_clause_with_llm(
     fallback_used = False
     model_result = None
 
-    # 1. Try local model server first if it is running
-    if _is_local_model_server_running():
+    # 1. Try remote model server (like Modal) if configured in .env
+    if MODEL_SERVER_URL:
+        # Re-use the same targeted local reasoning helper but pointing to the remote URL
         model_result = _analyze_clause_with_local_model(
             clause_text,
             similar_clauses,
@@ -694,7 +712,18 @@ def analyze_clause_with_llm(
         if model_result:
             model_used = True
 
-    # 2. If local model server is not running or didn't find anything, try Groq
+    # 2. Try local model server first if it is running
+    elif _is_local_model_server_running():
+        model_result = _analyze_clause_with_local_model(
+            clause_text,
+            similar_clauses,
+            selected_agreement_type,
+            selected_user_type,
+        )
+        if model_result:
+            model_used = True
+
+    # 3. If local/remote model server is not running or didn't find anything, try Groq
     if not model_result:
         model_result = _analyze_clause_with_groq(
             clause_text,
@@ -708,7 +737,7 @@ def analyze_clause_with_llm(
     if model_result:
         risk_level = model_result["risk_level"]
         explanation = model_result["explanation"]
-        if model_result.get("indicators") and not _is_local_model_server_running():
+        if model_result.get("indicators") and not MODEL_SERVER_URL and not _is_local_model_server_running():
             # Only append indicators for Groq results to keep local extractive output clean
             indicators = ", ".join(model_result["indicators"][:3])
             explanation = f"{explanation} Key signals: {indicators}."
@@ -769,7 +798,18 @@ def analyze_clauses_with_llm_batch(
 
 def get_model_service_status() -> Dict[str, Any]:
     """Return model service connectivity and configuration status."""
-    # Check if local model server is running on port 9000
+    # 1. Check if remote model server (like Modal) is configured
+    if MODEL_SERVER_URL:
+        provider_name = "modal-slm" if "modal.run" in MODEL_SERVER_URL else "remote-slm"
+        return {
+            "enabled": True,
+            "status": "ready",
+            "url": MODEL_SERVER_URL,
+            "provider": provider_name,
+            "model": "roberta-large",
+        }
+
+    # 2. Check if local model server is running on port 9000
     if _is_local_model_server_running():
         return {
             "enabled": True,

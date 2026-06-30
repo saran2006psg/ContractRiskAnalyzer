@@ -217,3 +217,55 @@ Once the backend is live, you must populate the production Pinecone database (if
    python backend/scripts/ingest_pipeline.py
    ```
 This will embed and index the 9,447 clauses in your production Pinecone database.
+
+---
+
+## 🧠 Serverless Model Hosting (Modal) - RECOMMENDED
+
+[Modal](https://modal.com/) is a serverless platform that allows you to run AI/ML models in the cloud. It is **strongly recommended** for hosting the `roberta-large` model server because:
+*   **Zero Idle Costs:** It automatically scales down to 0 when not in use, so you don't pay for idle servers.
+*   **Fast Cold Starts:** It boots up in seconds when a user uploads a contract.
+*   **Offloads CPU/RAM:** It keeps your FastAPI backend lightweight (so you can use Render's cheaper tiers).
+
+We have provided a complete Modal deployment script at [backend/modal_app.py](file:///d:/STUDY/ContractRiskAnalyzer/backend/modal_app.py).
+
+### Step-by-Step Modal Deployment:
+
+#### 1. Install and Set Up Modal
+On your local machine (with your virtual environment activated):
+```bash
+pip install modal
+```
+Register or log in to Modal, then authenticate your local machine:
+```bash
+modal setup
+```
+
+#### 2. Create a Modal Volume and Upload the Model
+Modal provides persistent volumes to store large files like model weights. Create a volume named `model-volume`:
+```bash
+modal volume create model-volume
+```
+Upload your local `roberta-large` model folder to the volume:
+```bash
+modal volume put model-volume ./models/roberta-large /roberta-large
+```
+*Note: Make sure the local path `./models/roberta-large` contains the `pytorch_model.bin`, `config.json`, and tokenizer files.*
+
+#### 3. Deploy the Model Server
+Deploy the serverless app to Modal:
+```bash
+modal deploy backend/modal_app.py
+```
+
+Once deployed, Modal will output a public URL for your web endpoint. It will look like:
+`https://<your-username>-contract-qa-server-qainference-qa.modal.run`
+
+#### 4. Configure the FastAPI Backend
+To tell your FastAPI backend to use the Modal-hosted model, add the Modal URL to your backend's `.env` file:
+```env
+MODEL_SERVER_URL=https://<your-username>-contract-qa-server-qainference-qa.modal.run
+```
+
+The backend will now automatically query your serverless Modal model for contract risk analysis and chat Q&A, completely offloading the CPU-heavy inference from your main server!
+
