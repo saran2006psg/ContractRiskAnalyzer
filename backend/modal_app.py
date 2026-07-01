@@ -4,7 +4,6 @@ import torch
 import modal
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
-from fastapi import FastAPI
 
 # 1. Define the container image with PyTorch and Transformers
 image = (
@@ -20,7 +19,7 @@ image = (
 # 2. Create the Modal App
 app = modal.App("contract-qa-server", image=image)
 
-# 3. Create a persistent volume to store the model weights (so we don't have to upload them every time)
+# 3. Create a persistent volume to store the model weights
 volume = modal.Volume.from_name("model-volume", create_if_missing=True)
 
 # Define request/response schemas
@@ -42,8 +41,8 @@ class QABatchResponse(BaseModel):
 # 4. Define the Model Class with lifecycle methods
 @app.cls(
     cpu=2.0,            # 2 vCPUs
-    memory=4096,        # 4GB RAM (enough for roberta-large)
-    volumes={"/models": volume}  # Mount the persistent volume at /models
+    memory=4096,        # 4GB RAM
+    volumes={"/models": volume}  # Mount persistent volume at /models
 )
 class QAinference:
     @modal.enter()
@@ -137,20 +136,36 @@ class QAinference:
 
         return responses
 
-    # 5. Expose as web endpoints matching the local API contract
-    @modal.web_endpoint(method="POST")
-    def qa(self, payload: QARequest) -> QAResponse:
-        return self._run_qa_batch([payload])[0]
-
-    @modal.web_endpoint(method="POST")
-    def qa_batch(self, payload: QABatchRequest) -> QABatchResponse:
-        if not payload.requests:
-            return QABatchResponse(responses=[])
+    # 5. Expose as a single ASGI FastAPI app matching the local model server endpoints
+    @modal.asgi_app()
+    def fastapi_app(self):
+        from fastapi import FastAPI
         
-        # Batch size of 16 for memory efficiency
-        all_responses = []
-        for start in range(0, len(payload.requests), 16):
-            chunk = payload.requests[start:start + 16]
-            all_responses.extend(self._run_qa_batch(chunk))
+        web_app = FastAPI(title="Modal Model Server")
+        
+        @web_app.post("/qa")
+        def qa(payload: QARequest) -> QAResponse:
+            return self._run_qa_batch([payload])[0]
             
-        return QABatchResponse(responses=all_responses)
+        @web_app.post("/qa_batch")
+        def qa_batch(payload: QABatchRequest) -> QABatchResponse:
+            if not payload.requests:
+                return QABatchResponse(responses=[])
+            
+            all_responses = []
+            for start in range(0, len(payload.requests), 16):
+                chunk = payload.requests[start:start + 16]
+                all_responses.extend(self._run_qa_batch(chunk))
+                
+            return QABatchResponse(responses=all_responses)
+            
+        @web_app.get("/health")
+        def health():
+            return {
+                "status": "ok",
+                "ready": self.tokenizer is not None and self.model is not None,
+                "device": str(self.device),
+                "model_path": "/models/roberta-large",
+            }
+            
+        return web_app

@@ -24,13 +24,32 @@ if ($InstallFrontendDeps -or -not (Test-Path (Join-Path $frontendDir "node_modul
     Pop-Location
 }
 
-Write-Host "Starting model server (RoBERTa-large)..."
-Start-Process powershell -ArgumentList @(
-    "-NoExit",
-    "-ExecutionPolicy", "Bypass",
-    "-Command",
-    "& '$venvActivate'; Set-Location '$backendDir'; python .\model_server.py"
-)
+# Load .env file and check if a remote model server is configured
+$envFile = Join-Path $repoRoot ".env"
+$startLocalModel = $true
+if (Test-Path $envFile) {
+    $envContent = Get-Content $envFile
+    foreach ($line in $envContent) {
+        if ($line -match "^MODEL_SERVER_URL\s*=\s*(.+)") {
+            $url = $matches[1].Trim()
+            if ($url -and -not ($url -like "*localhost*") -and -not ($url -like "*127.0.0.1*")) {
+                $startLocalModel = $false
+                Write-Host "Remote model server configured: $url"
+                Write-Host "Skipping local model server startup."
+            }
+        }
+    }
+}
+
+if ($startLocalModel) {
+    Write-Host "Starting local model server (RoBERTa-large)..."
+    Start-Process powershell -ArgumentList @(
+        "-NoExit",
+        "-ExecutionPolicy", "Bypass",
+        "-Command",
+        "& '$venvActivate'; Set-Location '$backendDir'; python .\model_server.py"
+    )
+}
 
 Write-Host "Starting backend API terminal..."
 Start-Process powershell -ArgumentList @(
