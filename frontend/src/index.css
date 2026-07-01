@@ -92,3 +92,22 @@ body {
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
+
+/* Mobile Responsiveness helpers */
+@media (max-width: 768px) {
+  .mobile-hide {
+    display: none !important;
+  }
+  .mobile-flex-col {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    height: auto !important;
+    gap: 12px !important;
+  }
+  .mobile-padding {
+    padding: 16px 20px !important;
+  }
+  .mobile-nav-gap {
+    gap: 16px !important;
+  }
+}

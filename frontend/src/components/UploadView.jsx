@@ -53,7 +53,7 @@ export default function UploadView({
   ];
 
   return (
-    <div style={{ padding: '40px 48px', maxWidth: 800, margin: '0 auto', width: '100%' }}>
+    <div className="mobile-padding" style={{ padding: '40px 48px', maxWidth: 800, margin: '0 auto', width: '100%' }}>
       <h1 style={{ fontSize: 26, fontWeight: 700, color: 'var(--text-title)', marginBottom: 8 }}>Upload Contract</h1>
       <p style={{ color: 'var(--text-muted)', marginBottom: 32 }}>Securely scan documents for liabilities, unbalanced terms, and compliance risks.</p>
 

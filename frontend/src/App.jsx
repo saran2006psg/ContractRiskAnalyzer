@@ -22,7 +22,7 @@ const FALLBACK_AGREEMENT_OPTIONS = [
 
 function TopNav({ currentView, setView, hasResults }) {
   return (
-    <header style={{
+    <header className="mobile-padding" style={{
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
@@ -32,7 +32,7 @@ function TopNav({ currentView, setView, hasResults }) {
       borderBottom: '1px solid var(--border)',
       flexShrink: 0
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
+      <div className="mobile-nav-gap" style={{ display: 'flex', alignItems: 'center', gap: 40 }}>
         {/* Logo */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontWeight: 700, fontSize: 18, color: '#111827' }}>
           <div style={{ 
@@ -45,7 +45,7 @@ function TopNav({ currentView, setView, hasResults }) {
               <path d="M2 12L12 17L22 12" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
           </div>
-          Contract Risk Analyzer
+          <span className="mobile-hide">Contract Risk Analyzer</span>
         </div>
 
         {/* Center Nav */}

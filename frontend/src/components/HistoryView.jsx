@@ -20,8 +20,8 @@ export default function HistoryView({
   onOpenSession,
 }) {
   return (
-    <div style={{ padding: '28px 32px', overflowY: 'auto', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div className="mobile-padding" style={{ padding: '28px 32px', overflowY: 'auto', height: '100%' }}>
+      <div className="mobile-flex-col" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text-title)', margin: 0 }}>Session History</h2>
           <p style={{ margin: '6px 0 0', color: 'var(--text-muted)', fontSize: 14 }}>
@@ -53,6 +53,7 @@ export default function HistoryView({
         {sessions.map((session) => (
           <div
             key={session.session_id}
+            className="mobile-flex-col"
             style={{
               border: '1px solid var(--border-light)',
               borderRadius: 10,
