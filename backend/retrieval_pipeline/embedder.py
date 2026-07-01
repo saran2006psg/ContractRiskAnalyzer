@@ -76,7 +76,7 @@ def _embed_remotely(texts: List[str]) -> Optional[List[List[float]]]:
         )
         
         logger.info(f"Requesting {len(texts)} embeddings remotely from: {url}")
-        with urllib.request.urlopen(req, timeout=15.0) as response:
+        with urllib.request.urlopen(req, timeout=45.0) as response:
             res = json.loads(response.read().decode("utf-8"))
             
         embeddings = res.get("embeddings", [])

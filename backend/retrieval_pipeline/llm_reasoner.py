@@ -365,7 +365,7 @@ def _query_remote_model_server(url: str, question: str, context: str) -> Optiona
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=10.0) as response:
+        with urllib.request.urlopen(req, timeout=45.0) as response:
             res = json.loads(response.read().decode("utf-8"))
             
         answer = res.get("answer", "").strip()
