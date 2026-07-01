@@ -6,7 +6,7 @@ using SentenceTransformer models, with singleton model loading for efficiency.
 """
 
 import logging
-from typing import List, Union
+from typing import List, Union, Optional
 
 import numpy as np
 
