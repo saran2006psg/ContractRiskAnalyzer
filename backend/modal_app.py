@@ -11,6 +11,7 @@ image = (
     .pip_install(
         "torch",
         "transformers",
+        "sentence-transformers",
         "fastapi",
         "pydantic"
     )
@@ -37,6 +38,12 @@ class QABatchRequest(BaseModel):
 class QABatchResponse(BaseModel):
     responses: List[QAResponse]
 
+class EmbedRequest(BaseModel):
+    texts: List[str]
+
+class EmbedResponse(BaseModel):
+    embeddings: List[List[float]]
+
 
 # 4. Define the Model Class with lifecycle methods
 @app.cls(
@@ -48,10 +55,10 @@ class QAinference:
     @modal.enter()
     def load_model(self):
         from transformers import AutoModelForQuestionAnswering, AutoTokenizer
+        from sentence_transformers import SentenceTransformer
         
+        # Load QA Model
         model_path = "/models/roberta-large"
-        
-        # Fallback to public squad model if local weights aren't uploaded yet
         if not os.path.exists(model_path):
             print(f"⚠️ Local model not found at {model_path} in Volume.")
             print("Falling back to loading 'deepset/roberta-large-squad2' from Hugging Face...")
@@ -66,6 +73,11 @@ class QAinference:
         self.device = torch.device("cpu")
         self.model.to(self.device)
         self.model.eval()
+
+        # Load Embedding Model
+        print("✅ Loading SentenceTransformer model: sentence-transformers/all-mpnet-base-v2")
+        self.embed_model = SentenceTransformer("sentence-transformers/all-mpnet-base-v2")
+        print("✅ SentenceTransformer loaded successfully.")
 
     def _select_best_span(self, input_ids: torch.Tensor, start_logits: torch.Tensor, end_logits: torch.Tensor, context_token_indices: List[int]) -> tuple[str, float]:
         k = min(20, len(context_token_indices))
@@ -158,6 +170,17 @@ class QAinference:
                 all_responses.extend(self._run_qa_batch(chunk))
                 
             return QABatchResponse(responses=all_responses)
+
+        @web_app.post("/embed")
+        def embed(payload: EmbedRequest) -> EmbedResponse:
+            # Generate embeddings using the loaded SentenceTransformer
+            # normalize_embeddings=True matches the config logic
+            embeddings = self.embed_model.encode(
+                payload.texts,
+                normalize_embeddings=True,
+                show_progress_bar=False
+            )
+            return EmbedResponse(embeddings=embeddings.tolist())
             
         @web_app.get("/health")
         def health():

@@ -10,45 +10,82 @@ from typing import List, Union
 
 import numpy as np
 
-try:
-    from sentence_transformers import SentenceTransformer
-except ImportError:
-    raise ImportError(
-        "sentence-transformers is required for embedding generation. "
-        "Install it with: pip install sentence-transformers"
-    )
+import json
+import urllib.request
+import urllib.error
+import os
+
+# We no longer import SentenceTransformer globally.
+# This prevents PyTorch and SentenceTransformers from being loaded into memory
+# when running on lightweight production platforms like Render's Free tier.
 
 from .config import (
     EMBEDDING_MODEL,
     EMBEDDING_DIMENSION,
     NORMALIZE_EMBEDDINGS,
-    BATCH_SIZE
+    BATCH_SIZE,
+    MODEL_SERVER_URL,
 )
 
 logger = logging.getLogger(__name__)
 
-# Module-level variable for singleton model instance
+# Module-level variable for singleton model instance (only used locally)
 _model_instance = None
 
 
-def _load_model() -> SentenceTransformer:
+def _load_model():
     """
-    Load the SentenceTransformer model (singleton pattern).
-    
-    This function ensures the model is loaded only once and cached for
-    subsequent calls, improving performance when embedding multiple clauses.
-    
-    Returns:
-        Loaded SentenceTransformer model instance
+    Load the SentenceTransformer model locally (singleton pattern).
+    Only called as a fallback if no remote model server is configured.
     """
     global _model_instance
     
     if _model_instance is None:
-        logger.info(f"Loading embedding model: {EMBEDDING_MODEL}")
+        try:
+            from sentence_transformers import SentenceTransformer
+        except ImportError:
+            raise ImportError(
+                "sentence-transformers is required for local embedding generation. "
+                "Install it with: pip install sentence-transformers"
+            )
+            
+        logger.info(f"Loading embedding model locally: {EMBEDDING_MODEL}")
         _model_instance = SentenceTransformer(EMBEDDING_MODEL)
         logger.info(f"Model loaded successfully (dimension: {EMBEDDING_DIMENSION})")
     
     return _model_instance
+
+
+def _embed_remotely(texts: List[str]) -> Optional[List[List[float]]]:
+    """Generate embeddings using the remote Modal serverless endpoint."""
+    if not MODEL_SERVER_URL:
+        return None
+        
+    try:
+        # Standardize endpoint path to /embed
+        url = MODEL_SERVER_URL.rstrip("/")
+        if not url.endswith("/embed"):
+            url += "/embed"
+            
+        payload = json.dumps({"texts": texts}).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        
+        logger.info(f"Requesting {len(texts)} embeddings remotely from: {url}")
+        with urllib.request.urlopen(req, timeout=15.0) as response:
+            res = json.loads(response.read().decode("utf-8"))
+            
+        embeddings = res.get("embeddings", [])
+        if embeddings and len(embeddings) == len(texts):
+            return embeddings
+    except Exception as e:
+        logger.warning("Failed to get remote embeddings from Modal: %s. Falling back to local.", e)
+        
+    return None
 
 
 def embed_clause(clause: str) -> List[float]:
@@ -72,24 +109,20 @@ def embed_clause(clause: str) -> List[float]:
     """
     if not clause or not clause.strip():
         raise ValueError("Clause text cannot be empty")
-    
-    # Load model (will use cached instance if already loaded)
+        
+    # 1. Try remote Modal endpoint first
+    remote_res = _embed_remotely([clause])
+    if remote_res:
+        return remote_res[0]
+        
+    # 2. Local fallback
     model = _load_model()
-    
-    # Generate embedding
-    # normalize_embeddings=True ensures unit vectors for cosine similarity
     embedding = model.encode(
         clause,
         normalize_embeddings=NORMALIZE_EMBEDDINGS,
         show_progress_bar=False
     )
-    
-    # Convert numpy array to list
-    embedding_list = embedding.tolist()
-    
-    logger.debug(f"Generated embedding for clause ({len(clause)} chars): dimension={len(embedding_list)}")
-    
-    return embedding_list
+    return embedding.tolist()
 
 
 def embed_clauses(clauses: List[str], show_progress: bool = True) -> List[List[float]]:
@@ -137,26 +170,20 @@ def embed_clauses(clauses: List[str], show_progress: bool = True) -> List[List[f
     
     logger.info(f"Generating embeddings for {len(valid_clauses)} clause(s)")
     
-    # Load model (will use cached instance if already loaded)
+    # 1. Try remote Modal endpoint first
+    remote_res = _embed_remotely(valid_clauses)
+    if remote_res:
+        return remote_res
+        
+    # 2. Local fallback
     model = _load_model()
-    
-    # Generate embeddings in batches
     embeddings = model.encode(
         valid_clauses,
         batch_size=BATCH_SIZE,
         normalize_embeddings=NORMALIZE_EMBEDDINGS,
         show_progress_bar=show_progress
     )
-    
-    # Convert numpy array to list of lists
-    embeddings_list = embeddings.tolist()
-    
-    logger.info(
-        f"Successfully generated {len(embeddings_list)} embeddings "
-        f"(dimension: {EMBEDDING_DIMENSION})"
-    )
-    
-    return embeddings_list
+    return embeddings.tolist()
 
 
 def get_embedding_dimension() -> int:
