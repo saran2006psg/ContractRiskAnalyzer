@@ -7,9 +7,15 @@ analyze_contract() function, enabling web-based contract risk analysis.
 
 import logging
 import os
+import sys
 import tempfile
 from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
+
+# Bootstrap imports: Ensure the backend directory is in the Python path
+backend_dir = os.path.dirname(os.path.abspath(__file__))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
 
 from fastapi import FastAPI, File, Form, UploadFile, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
